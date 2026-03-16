@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>토목 감리 법령 문서 관리 시스템</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Malgun Gothic', sans-serif; }
+        body { margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; background-color: #f4f6f9; color: #333; }
+        header { height: 60px; background-color: #1a2a3a; color: white; display: flex; align-items: center; padding: 0 20px; font-size: 18px; font-weight: bold; flex-shrink: 0; }
+        .container { display: flex; flex: 1; overflow: hidden; }
+        .sidebar { width: 250px; background-color: #fff; border-right: 1px solid #dee2e6; padding: 20px; overflow-y: auto; }
+        .folder-list { list-style: none; padding: 0; margin: 0; }
+        .folder-item { padding: 12px 15px; margin-bottom: 5px; border-radius: 6px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 10px; color: #495057; font-size: 14px; }
+        .folder-item:hover { background-color: #f8f9fa; }
+        .folder-item.active { background-color: #e6f2ff; color: #007bff; font-weight: bold; }
+        
+        .center-panel { flex: 1; padding: 20px; display: flex; flex-direction: column; border-right: 1px solid #dee2e6; background-color: #f8f9fa; overflow: hidden; }
+        
+        /* 💡 검색창과 제목을 감싸는 헤더 영역 */
+        .list-header-area { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0; }
+        .list-header { font-size: 16px; font-weight: bold; color: #212529; margin: 0; }
+        .search-input { padding: 8px 12px; border: 1px solid #ced4da; border-radius: 4px; width: 250px; font-size: 13px; }
+        
+        /* 💡 스크롤 겹침 버그를 해결하기 위한 전용 컨테이너 */
+        .table-container { flex: 1; overflow-y: auto; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        
+        .file-table { width: 100%; border-collapse: collapse; }
+        .file-table th, .file-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }
+        .file-table th { background-color: #f1f3f5; color: #495057; font-weight: bold; position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .file-table tr { cursor: pointer; transition: 0.2s; }
+        .file-table tr:hover { background-color: #f8f9fa; }
+        .file-table tr.selected { background-color: #e6f2ff; }
+        
+        /* 버튼 스타일 */
+        .btn { padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; border: none; color: white; }
+        .btn-download { background-color: #28a745; }
+        .btn-download:hover { background-color: #218838; }
+        .btn-delete { background-color: #dc3545; }
+        .btn-delete:hover { background-color: #c82333; }
+        
+        .right-panel { width: 40%; display: flex; flex-direction: column; background-color: #fff; }
+        .viewer-area { flex: 6; border-bottom: 1px solid #dee2e6; display: flex; flex-direction: column; }
+        .viewer-header { padding: 10px 15px; background-color: #f1f3f5; font-size: 13px; font-weight: bold; color: #495057; border-bottom: 1px solid #dee2e6; flex-shrink: 0; }
+        .pdf-frame { flex: 1; width: 100%; border: none; background-color: #525659; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; }
+        .upload-area { flex: 4; padding: 20px; display: flex; flex-direction: column; }
+        .drop-zone { flex: 1; border: 2px dashed #adb5bd; border-radius: 8px; background-color: #f8f9fa; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #6c757d; transition: 0.3s; cursor: pointer; }
+        .drop-zone.dragover { border-color: #007bff; background-color: #e6f2ff; color: #007bff; }
+    </style>
+</head>
+<body>
+
+    <header>📘 토목 감리 법령 문서 공유 시스템</header>
+
+    <div class="container">
+        <aside class="sidebar">
+            <ul class="folder-list" id="category-list">
+                <li class="folder-item active" onclick="filterCategory('전체')">📂 전체 문서</li>
+                <li class="folder-item" onclick="filterCategory('건설기술 진흥법')">📁 건설기술 진흥법</li>
+                <li class="folder-item" onclick="filterCategory('건설산업기본법')">📁 건설산업기본법</li>
+                <li class="folder-item" onclick="filterCategory('산업안전보건법')">📁 산업안전보건법</li>
+                <li class="folder-item" onclick="filterCategory('기타')">📁 기타</li>
+            </ul>
+        </aside>
+
+        <main class="center-panel">
+            <div class="list-header-area">
+                <div class="list-header" id="current-category-title">전체 문서 목록</div>
+                <input type="text" id="search-input" class="search-input" placeholder="🔍 파일명 검색..." onkeyup="searchFiles()">
+            </div>
+            
+            <div class="table-container">
+                <table class="file-table">
+                    <thead>
+                        <tr>
+                            <th>파일명</th>
+                            <th style="width: 100px;">등록일</th>
+                            <th style="width: 90px;">크기</th>
+                            <th style="width: 130px; text-align: center;">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody id="file-list-body"></tbody>
+                </table>
+            </div>
+        </main>
+
+        <aside class="right-panel">
+            <div class="viewer-area">
+                <div class="viewer-header" id="viewer-title">미리보기 (선택된 파일 없음)</div>
+                <iframe id="pdf-viewer" class="pdf-frame" src="" style="display:none;"></iframe>
+                <div id="viewer-empty" class="pdf-frame" style="display: flex;">파일을 선택하면 이곳에 미리보기가 나타납니다.</div>
+            </div>
+            
+            <div class="upload-area">
+                <div class="list-header" style="font-size: 14px; margin-bottom: 10px;">파일 업로드</div>
+                <div class="drop-zone" id="drop-zone">
+                    <i style="font-size:40px;">📥</i>
+                    <p style="margin: 0; font-weight: bold;">PDF 파일을 이곳에 끌어다 놓으세요.</p>
+                </div>
+                <input type="file" id="file-input" accept=".pdf" style="display: none;" multiple>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+        let filesData = [];
+        let currentFilter = '전체';
+        let searchQuery = ''; // 검색어 상태
+
+        window.onload = function() {
+            fetchFileList();
+        };
+
+        function fetchFileList() {
+            fetch('/files')
+                .then(response => response.json())
+                .then(data => {
+                    filesData = data;
+                    renderList();
+                });
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        // --- 업로드 로직 ---
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+        function handleFiles(files) {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if (file.type !== "application/pdf") { alert("PDF 파일만 업로드 가능합니다."); continue; }
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                fetch('/upload', { method: 'POST', body: formData })
+                    .then(response => response.json())
+                    .then(data => fetchFileList()) // 성공 시 목록 새로고침
+                    .catch(error => console.error('업로드 에러:', error));
+            }
+        }
+
+        // --- 💡 [신규] 삭제 로직 ---
+        function deleteFile(id, event) {
+            event.stopPropagation(); // 삭제 버튼 클릭 시 미리보기가 동작하는 것을 방지
+            
+            const file = filesData.find(f => f.id === id);
+            if (!file) return;
+
+            if (confirm(`'${file.name}' 문서를 정말 삭제하시겠습니까?`)) {
+                fetch('/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ category: file.category, filename: file.name })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    fetchFileList(); // 삭제 성공 시 목록 새로고침
+                    
+                    // 삭제한 파일이 현재 뷰어에 켜져 있다면 뷰어 초기화
+                    if(document.getElementById('viewer-title').innerText.includes(file.name)) {
+                        document.getElementById('viewer-title').innerText = '미리보기 (선택된 파일 없음)';
+                        document.getElementById('pdf-viewer').style.display = 'none';
+                        document.getElementById('viewer-empty').style.display = 'flex';
+                    }
+                })
+                .catch(error => console.error('삭제 에러:', error));
+            }
+        }
+
+        // --- 💡 [신규] 검색 로직 ---
+        function searchFiles() {
+            searchQuery = document.getElementById('search-input').value.toLowerCase();
+            renderList();
+        }
+
+        function filterCategory(category) {
+            currentFilter = category;
+            document.querySelectorAll('.folder-item').forEach(el => el.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            document.getElementById('current-category-title').innerText = category === '전체' ? '전체 문서 목록' : category;
+            renderList();
+        }
+
+        // --- 목록 렌더링 ---
+        function renderList() {
+            const tbody = document.getElementById('file-list-body');
+            tbody.innerHTML = '';
+            
+            // 1. 카테고리 필터링
+            let filteredFiles = currentFilter === '전체' ? filesData : filesData.filter(f => f.category === currentFilter);
+            
+            // 2. 검색어 필터링
+            if (searchQuery) {
+                filteredFiles = filteredFiles.filter(f => f.name.toLowerCase().includes(searchQuery));
+            }
+
+            if (filteredFiles.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 30px; color:#6c757d;">해당 조건의 문서가 없습니다.</td></tr>`;
+                return;
+            }
+
+            filteredFiles.forEach(file => {
+                const tr = document.createElement('tr');
+                tr.onclick = () => previewFile(file.id, tr);
+                tr.innerHTML = `
+                    <td><span style="font-size:12px; color:#007bff; border:1px solid #007bff; border-radius:3px; padding:1px 4px; margin-right:5px;">${file.category}</span>${file.name}</td>
+                    <td>${file.date}</td>
+                    <td>${formatBytes(file.size)}</td>
+                    <td style="text-align: center;">
+                        <a href="${file.url}" download="${file.name}" onclick="event.stopPropagation();">
+                            <button class="btn btn-download">다운로드</button>
+                        </a>
+                        <button class="btn btn-delete" onclick="deleteFile('${file.id}', event)">삭제</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function previewFile(id, rowElement) {
+            document.querySelectorAll('.file-table tr').forEach(r => r.classList.remove('selected'));
+            rowElement.classList.add('selected');
+
+            const file = filesData.find(f => f.id === id);
+            if (file) {
+                document.getElementById('viewer-title').innerText = `미리보기: ${file.name}`;
+                document.getElementById('viewer-empty').style.display = 'none';
+                const viewer = document.getElementById('pdf-viewer');
+                viewer.style.display = 'block';
+                viewer.src = file.url;
+            }
+        }
+    </script>
+</body>
+</html>
